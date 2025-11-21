@@ -1,0 +1,31 @@
+Package: SPARSim
+Title: SPARSim Single Cell: a count data simulator for scRNA-seq data
+Version: 0.9.5
+Authors@R: c(person("Giacomo", "Baruzzo", email = "giacomo.baruzzo@unipd.it", role = c("aut", "cre")), person("Ilaria", "Patuzzi", email = "IPatuzzi@izsvenezie.it", role = c("aut")), person("Barbara", "Di Camillo", email = "barbara.dicamillo@unipd.it", role = c("aut")))
+Description: SPARSim is a single cell RNA-seq (scRNA-seq) count data simulator.
+Depends: 
+    R (>= 3.4.0)
+License: GPL-3
+Encoding: UTF-8
+LazyData: false
+RoxygenNote: 7.1.2
+BiocViews:
+LinkingTo: 
+    Rcpp
+Imports: 
+    Rcpp,
+    scran,
+    Matrix,
+    edgeR,
+    stats,
+    SingleCellExperiment,
+    SummarizedExperiment,
+    scater,
+    kableExtra,
+    mclust
+Suggests: 
+    testthat,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+SystemRequirements: C++11

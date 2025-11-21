@@ -1,0 +1,11 @@
+Meta
+doc
+.Rproj.user
+.Rhistory
+.Ruserdata
+/*.tar.gz
+*_cache/
+/cache/
+vignettes/*.html
+vignettes/*.pdf
+inst/doc
