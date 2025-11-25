@@ -3,27 +3,28 @@ import numpy as np
 from .parameter import SPARSimParameter
 
 
-def simulate_hyper(avg_abund, seqdepth, max_val, digits=None):
+def simulate_hyper(avg_abund: np.array, seqdepth: int, digits=None) -> np.array:
     """
     Simulate technical variability (multivariate hypergeometric) using NumPy.
 
     Args:
-        avg_abund (np.array): Array containing intensity values for each feature.
+        avg_abund (np.array): Array containing intensity values for each feature (for a single cell).
         seqdepth (int): Sequencing depth (sample size).
-        max_val (int): Max value for random number generation space.
         digits (int, optional): Used for sanity check against seqdepth.
                                 Defaults to None (skips check).
 
     Returns:
         np.array: Array of count values matching the length of avg_abund.
     """
+    # max_val should be the sum of avg_abund to represent the total pool size
+    max_val = int(np.sum(avg_abund))
 
     # 1. Sanity Check
     # In Python, we check if seqdepth exceeds the population size (max_val)
     # because we cannot sample unique integers if sample_size > population.
     if seqdepth > max_val:
         raise ValueError(
-            f"seqdepth ({seqdepth}) cannot be greater than max_val ({max_val})"
+            f"seqdepth ({seqdepth}) cannot be greater than max_val (sum of avg_abund: {max_val})"
         )
 
     if digits is not None and seqdepth > 10**digits:
@@ -82,16 +83,34 @@ def SPARSim_simulation(
 
     # Sample cells with alternative expression
     if params.p_bimod is not None:
-        bimodal_genes_id = (~np.isnan(params.intensity_2)) & ((1 - params.p_bimod) > 0)
+        # Identify all genes that have bimodal parameters defined and are eligible for mode 2
+        # This is a boolean array of length num_genes
+        eligible_for_mode2 = (~np.isnan(params.intensity_2)) & (
+            (1 - params.p_bimod) > 0
+        )
 
         for cell in range(params.library_size.size):
-            mode2_ind = np.random.binomial(
-                1, 1 - params.p_bimod[bimodal_genes_id]
+            # For the eligible genes, determine which ones switch to mode 2 for this cell
+            # This results in a boolean array of length len(eligible_for_mode2[eligible_for_mode2])
+            # which is the number of eligible genes.
+            switch_to_mode2_subset = np.random.binomial(
+                1, 1 - params.p_bimod[eligible_for_mode2]
             ).astype(bool)
-            gene_expression_matrix[mode2_ind, cell] = params.intensity_2[mode2_ind]
-            gene_expression_var_matrix[mode2_ind, cell] = params.variability_2[
-                mode2_ind
+
+            # Now, we need to create a boolean index for the full gene_expression_matrix
+            # Only apply the switch to mode 2 to those genes that were eligible.
+            # Create a temporary boolean array of the full gene length, initialized to False
+            actual_switch_indices = np.zeros(params.intensity.shape, dtype=bool)
+            # Set the True values at the positions corresponding to eligible genes that switch
+            actual_switch_indices[eligible_for_mode2] = switch_to_mode2_subset
+
+            # Apply the update using the full-length boolean index
+            gene_expression_matrix[actual_switch_indices, cell] = params.intensity_2[
+                actual_switch_indices
             ]
+            gene_expression_var_matrix[actual_switch_indices, cell] = (
+                params.variability_2[actual_switch_indices]
+            )
 
     # Generate biological variability
     gene_expression_matrix_bio_var = gene_expression_matrix.copy()
@@ -112,10 +131,15 @@ def SPARSim_simulation(
     digits = np.floor(np.log10(input_fragment_lib_size)) + 1
     new_libsize = 10**digits
 
+    cell_sums = gene_expression_matrix_bio_var.sum(axis=0)
+    cell_sums_reshaped = cell_sums[
+        np.newaxis, :
+    ]  # Reshape to (1, n_cells) for broadcasting with (n_genes, n_cells)
+
     gene_expression_matrix_bio_var_scaled = np.round(
-        (gene_expression_matrix_bio_var.T * new_libsize)
-        / gene_expression_matrix_bio_var.sum(axis=0)
-    ).T
+        (gene_expression_matrix_bio_var * new_libsize)  # (n_genes, n_cells) * scalar
+        / cell_sums_reshaped  # (1, n_cells)
+    )
     num_fragment = gene_expression_matrix_bio_var_scaled.sum(axis=0)
 
     print("Simulating technical variability ...")
@@ -123,12 +147,10 @@ def SPARSim_simulation(
 
     for cell_idx, sample_lib_size in enumerate(params.library_size):
         sim_count_matrix[:, cell_idx] = simulate_hyper(
-            avg_abund=gene_expression_matrix_bio_var_scaled,
+            avg_abund=gene_expression_matrix_bio_var_scaled[:, cell_idx],
             seqdepth=sample_lib_size,
-            max_val=int(num_fragment),
             digits=digits,
         )
-
     return {
         "count_matrix": sim_count_matrix,
         "gene_matrix": gene_expression_matrix_bio_var,

@@ -62,7 +62,6 @@ class SPARSimParameter:
         intensity: np.ndarray,
         variability: np.ndarray,
         library_size: np.ndarray,
-        sample_names: None | np.ndarray = None,
         intensity_2: None | np.ndarray = None,
         variability_2: None | np.ndarray = None,
         p_bimod: None | np.ndarray = None,
