@@ -17,12 +17,12 @@ def int_var_relation(intensity_values: np.ndarray, sim_param: dict) -> np.ndarra
     intensity_values : numpy.ndarray
         The (new) intensity values to which we want to associate variability values.
     sim_param : dict
-        Simulation parameter from which learn the gene intensity vs gene variability association.
+        Simulation parameter from which learn gene intensity vs gene var association.
 
     Returns
     -------
     numpy.ndarray
-        A vector of the same size of `intensity_values` containing the computed variability values.
+        A vector size of `intensity_values` containing the computed var values.
     """
     not_na_var_ind = ~np.isnan(sim_param["variability"])
     int_ord = np.sort(sim_param["intensity"][not_na_var_ind])
@@ -104,7 +104,7 @@ class SPARSimParameter:
     def create_DE_genes_parameter(
         self,
         fc_multiplier: np.ndarray,
-        n_cells=None,
+        n_cells: int | None = None,
         lib_size_DE=None,
     ):
         """

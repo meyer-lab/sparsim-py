@@ -3,12 +3,12 @@ import numpy as np
 from .parameter import SPARSimParameter
 
 
-def simulate_hyper(avg_abund: np.array, seqdepth: int, digits=None) -> np.array:
+def simulate_hyper(avg_abund: np.ndarray, seqdepth: int, digits=None) -> np.ndarray:
     """
     Simulate technical variability (multivariate hypergeometric) using NumPy.
 
     Args:
-        avg_abund (np.array): Array containing intensity values for each feature (for a single cell).
+        avg_abund (np.array): Intensity values for each feature (for a single cell).
         seqdepth (int): Sequencing depth (sample size).
         digits (int, optional): Used for sanity check against seqdepth.
                                 Defaults to None (skips check).
@@ -54,16 +54,20 @@ def simulate_hyper(avg_abund: np.array, seqdepth: int, digits=None) -> np.array:
     # 5. Handle "Overflow"
     # If max_val > sum(avg_abund), some random indices might fall beyond the last gene.
     # searchsorted assigns these to index == len(avg_abund).
-    # We slice the result to discard these 'missed' hits, strictly matching the R output shape.
+    # We slice the result to discard these 'missed' hits.
     return counts[: len(avg_abund)]
 
 
 def SPARSim_simulation(
-    params: SPARSimParameter,
+    params: SPARSimParameter, rng: np.random.Generator | None | int = None
 ):
     """
     Simulate a raw count table.
     """
+    if rng is None:
+        rng = np.random.default_rng()
+    elif rng is int:
+        rng = np.random.default_rng(rng)
 
     # Initialize gene expression and variability matrices
     # genes x cells
@@ -83,25 +87,23 @@ def SPARSim_simulation(
 
     # Sample cells with alternative expression
     if params.p_bimod is not None:
-        # Identify all genes that have bimodal parameters defined and are eligible for mode 2
+        # Identify genes having bimodal parameters defined and are eligible for mode 2
         # This is a boolean array of length num_genes
         eligible_for_mode2 = (~np.isnan(params.intensity_2)) & (
             (1 - params.p_bimod) > 0
         )
 
         for cell in range(params.library_size.size):
-            # For the eligible genes, determine which ones switch to mode 2 for this cell
-            # This results in a boolean array of length len(eligible_for_mode2[eligible_for_mode2])
+            # For the eligible genes, determine which switch to mode 2 for this cell
+            # Results in bool arr of length len(eligible_for_mode2[eligible_for_mode2])
             # which is the number of eligible genes.
-            switch_to_mode2_subset = np.random.binomial(
+            switch_to_mode2_subset = rng.binomial(
                 1, 1 - params.p_bimod[eligible_for_mode2]
             ).astype(bool)
 
             # Now, we need to create a boolean index for the full gene_expression_matrix
             # Only apply the switch to mode 2 to those genes that were eligible.
-            # Create a temporary boolean array of the full gene length, initialized to False
             actual_switch_indices = np.zeros(params.intensity.shape, dtype=bool)
-            # Set the True values at the positions corresponding to eligible genes that switch
             actual_switch_indices[eligible_for_mode2] = switch_to_mode2_subset
 
             # Apply the update using the full-length boolean index
@@ -119,7 +121,7 @@ def SPARSim_simulation(
         shape = 1 / gene_expression_var_matrix
         scale = gene_expression_var_matrix * gene_expression_matrix
 
-    gene_expression_matrix_bio_var = np.random.gamma(shape=shape, scale=scale)
+    gene_expression_matrix_bio_var = rng.gamma(shape=shape, scale=scale)
 
     zero_var_index = gene_expression_var_matrix == 0
     gene_expression_matrix_bio_var[zero_var_index] = gene_expression_matrix[
@@ -140,7 +142,6 @@ def SPARSim_simulation(
         (gene_expression_matrix_bio_var * new_libsize)  # (n_genes, n_cells) * scalar
         / cell_sums_reshaped  # (1, n_cells)
     )
-    num_fragment = gene_expression_matrix_bio_var_scaled.sum(axis=0)
 
     print("Simulating technical variability ...")
     sim_count_matrix = np.zeros_like(gene_expression_matrix_bio_var_scaled)
@@ -151,6 +152,7 @@ def SPARSim_simulation(
             seqdepth=sample_lib_size,
             digits=digits,
         )
+
     return {
         "count_matrix": sim_count_matrix,
         "gene_matrix": gene_expression_matrix_bio_var,

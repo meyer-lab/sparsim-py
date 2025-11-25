@@ -137,7 +137,7 @@ def test_zero_variability():
     )
     result = SPARSim_simulation(params)
 
-    # For the gene with zero variability, bio-varied expression should equal initial expression
+    # For the gene with 0 variability, bio-varied expression should = initial expression
     assert np.allclose(result["gene_matrix"][1, :], result["abundance_matrix"][1, :])
     # For genes with non-zero variability, they should likely be different
     assert not np.allclose(
