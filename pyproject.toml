@@ -6,12 +6,43 @@ authors = [
     {name = "Gemini", email = "gemini@google.com"},
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "numpy",
     "scipy",
 ]
 
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # flake8
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # Unused arguments
+    "ARG",
+    "W",
+    # "D", enable this later
+    "Q",
+    # NumPy-specific checks
+    "NPY",
+    # type checking
+    "TC",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+    "ruff>=0.14.6",
+]
